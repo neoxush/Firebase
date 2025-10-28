@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TextRenderer } from '../core/TextRenderer';
+import { StylishTextRenderer } from '../core/StylishTextRenderer';
 import { InputHandler } from '../core/InputHandler';
 import { PerformanceTracker } from '../core/PerformanceTracker';
 
@@ -10,12 +10,13 @@ interface FallingWord {
   fallSpeed: number;
   timeLimit: number;
   isActive: boolean;
+  indicator: THREE.Mesh;
 }
 
 export class WordRainMode {
   private words: FallingWord[] = [];
   private currentWord: FallingWord | null = null;
-  private textRenderer: TextRenderer;
+  private textRenderer: StylishTextRenderer;
   private wordList: string[] = [
     'hello', 'world', 'typing', 'game', 'three', 'webgl', 'javascript',
     'code', 'fast', 'quick', 'brown', 'fox', 'jumps', 'over', 'lazy',
@@ -33,7 +34,7 @@ export class WordRainMode {
     private performanceTracker: PerformanceTracker,
     groundY: number = -5
   ) {
-    this.textRenderer = new TextRenderer();
+    this.textRenderer = new StylishTextRenderer();
     this.groundY = groundY;
     this.setupInputHandlers();
   }
@@ -62,7 +63,6 @@ export class WordRainMode {
     
     console.log(`Spawning word: "${word}"`);
     
-    // Random X position
     const x = (Math.random() - 0.5) * 20;
     const startY = 10;
     const z = (Math.random() - 0.5) * 5;
@@ -70,6 +70,11 @@ export class WordRainMode {
     const position = new THREE.Vector3(x, startY, z);
     const mesh = this.textRenderer.createTextMesh(word, position, 1.0);
     
+    const indicator = this.textRenderer.createIndicatorMesh();
+    const wordWidth = word.length * 1.2; // Estimate from StylishTextRenderer
+    indicator.position.set(-wordWidth / 2 - 1, 0, 0.1);
+    mesh.add(indicator);
+
     this.scene.add(mesh);
     this.textRenderer.animateTextEntry(mesh);
     
@@ -77,14 +82,14 @@ export class WordRainMode {
       id: wordId,
       text: word,
       mesh,
-      fallSpeed: 1 + Math.random() * 0.5, // Random fall speed
-      timeLimit: 8000 + word.length * 500, // Time based on word length
-      isActive: true
+      fallSpeed: 1 + Math.random() * 0.5, 
+      timeLimit: 8000 + word.length * 500, 
+      isActive: true,
+      indicator
     };
     
     this.words.push(fallingWord);
     
-    // Set as current word if none is active
     if (!this.currentWord) {
       this.setCurrentWord(fallingWord);
     }
@@ -96,112 +101,14 @@ export class WordRainMode {
     return this.wordList[Math.floor(Math.random() * this.wordList.length)];
   }
 
-  private setCurrentWord(word: FallingWord): void {
-    this.currentWord = word;
-    this.inputHandler.setCurrentWord(word.text);
-    
-    // Highlight current word
-    this.highlightWord(word, true);
-    
-    // Add visual indicator (arrow) to show current word
-    this.addCurrentWordIndicator(word);
-  }
-
-  private highlightWord(word: FallingWord, highlight: boolean): void {
-    const children = word.mesh.children as THREE.Group[];
-    children.forEach(charGroup => {
-      // Each character is now a Group containing a Mesh
-      const charMesh = charGroup.children[0] as THREE.Mesh;
-      if (charMesh && charMesh.material) {
-        const material = charMesh.material as THREE.MeshBasicMaterial;
-        
-        if (highlight) {
-          // Make the word slightly brighter and bigger when highlighted
-          material.color.multiplyScalar(1.3); // Brighten
-          word.mesh.scale.setScalar(1.2);
-        } else {
-          // Reset to normal brightness and size
-          material.color.setHex(0xffffff); // Reset to white
-          word.mesh.scale.setScalar(1.0);
-        }
-      }
-    });
-  }
-
-  private addCurrentWordIndicator(word: FallingWord): void {
-    // Remove existing indicator if any
-    this.removeCurrentWordIndicator();
-    
-    // Create arrow indicator using LetterGeometry
-    const arrowGroup = this.textRenderer.createTextMesh('>', new THREE.Vector3(0, 0, 0), 1.0);
-    
-    // Position the arrow to the left of the word (relative to word position)
-    const wordBounds = this.getWordBounds(word.mesh);
-    arrowGroup.position.set(
-      wordBounds.left - 1.2, // Left of the word (relative position)
-      0, // Same Y as word
-      0  // Same Z as word
-    );
-    
-    // Make the arrow yellow/orange for visibility
-    const arrowMesh = arrowGroup.children[0] as THREE.Group;
-    if (arrowMesh && arrowMesh.children[0]) {
-      const mesh = arrowMesh.children[0] as THREE.Mesh;
-      const material = mesh.material as THREE.MeshBasicMaterial;
-      material.color.setHex(0xffaa00); // Orange color
-      
-      // Add blinking animation data
-      arrowGroup.userData.blinkTimer = 0;
-      arrowGroup.userData.isVisible = true;
+  private setCurrentWord(word: FallingWord | null): void {
+    if (this.currentWord) {
+        this.currentWord.indicator.visible = false;
     }
-    
-    // Add arrow as a child of the word group so it moves together
-    word.mesh.add(arrowGroup);
-    word.mesh.userData.indicator = arrowGroup;
-  }
-
-  private removeCurrentWordIndicator(): void {
-    // Remove indicator from previous current word
-    this.words.forEach(word => {
-      if (word.mesh.userData.indicator) {
-        // Remove from word group (not scene, since it's a child)
-        word.mesh.remove(word.mesh.userData.indicator);
-        this.disposeWordMesh(word.mesh.userData.indicator);
-        word.mesh.userData.indicator = null;
-      }
-    });
-  }
-
-  private getWordBounds(wordMesh: THREE.Group): { left: number; right: number } {
-    const children = wordMesh.children as THREE.Group[];
-    if (children.length === 0) return { left: 0, right: 0 };
-    
-    const firstChar = children[0];
-    const lastChar = children[children.length - 1];
-    
-    return {
-      left: firstChar.position.x - 0.4, // Half character width
-      right: lastChar.position.x + 0.4
-    };
-  }
-
-  private updateIndicatorBlink(deltaTime: number): void {
-    if (!this.currentWord || !this.currentWord.mesh.userData.indicator) return;
-    
-    const indicator = this.currentWord.mesh.userData.indicator as THREE.Group;
-    
-    // Update blink timer
-    indicator.userData.blinkTimer += deltaTime;
-    
-    // Blink every 0.5 seconds (like a typical cursor)
-    const blinkInterval = 0.5;
-    
-    if (indicator.userData.blinkTimer >= blinkInterval) {
-      indicator.userData.blinkTimer = 0;
-      indicator.userData.isVisible = !indicator.userData.isVisible;
-      
-      // Toggle visibility
-      indicator.visible = indicator.userData.isVisible;
+    this.currentWord = word;
+    if (this.currentWord) {
+        this.currentWord.indicator.visible = true;
+        this.inputHandler.setCurrentWord(this.currentWord.text);
     }
   }
 
@@ -210,24 +117,14 @@ export class WordRainMode {
     
     this.performanceTracker.recordWordCompletion(word, accuracy);
     
-    // Remove completed word
     this.removeWord(this.currentWord);
     
-    // Find next word to target
     this.selectNextWord();
     
-    // Spawn new word
     this.spawnWord();
   }
 
   private removeWord(word: FallingWord): void {
-    // Remove indicator if this word has one
-    if (word.mesh.userData.indicator) {
-      this.scene.remove(word.mesh.userData.indicator);
-      this.disposeWordMesh(word.mesh.userData.indicator);
-      word.mesh.userData.indicator = null;
-    }
-    
     this.textRenderer.animateTextExit(word.mesh, () => {
       this.scene.remove(word.mesh);
       this.disposeWordMesh(word.mesh);
@@ -247,12 +144,13 @@ export class WordRainMode {
     const availableWords = this.words.filter(w => w.isActive && w !== this.currentWord);
     
     if (availableWords.length > 0) {
-      // Select the lowest word (closest to ground)
       const lowestWord = availableWords.reduce((lowest, current) => 
         current.mesh.position.y < lowest.mesh.position.y ? current : lowest
       );
       
       this.setCurrentWord(lowestWord);
+    } else {
+        this.setCurrentWord(null);
     }
   }
 
@@ -261,18 +159,12 @@ export class WordRainMode {
     this.updateSpawning(deltaTime);
     this.checkCollisions();
     this.updateCurrentWordVisual();
-    this.updateIndicatorBlink(deltaTime);
   }
 
   private updateWordPositions(deltaTime: number): void {
     this.words.forEach(word => {
       if (!word.isActive) return;
-      
-      // Move word down
       word.mesh.position.y -= word.fallSpeed * deltaTime;
-      
-      // Keep letters facing the camera (no rotation)
-      // Removed rotation for better readability
     });
   }
 
@@ -282,8 +174,6 @@ export class WordRainMode {
     if (this.spawnTimer >= this.spawnInterval) {
       this.spawnWord();
       this.spawnTimer = 0;
-      
-      // Gradually decrease spawn interval (increase difficulty)
       this.spawnInterval = Math.max(1500, this.spawnInterval - 50);
     }
   }
@@ -294,8 +184,6 @@ export class WordRainMode {
     this.words.forEach(word => {
       if (word.mesh.position.y <= this.groundY) {
         wordsToRemove.push(word);
-        
-        // Penalty for missed word
         if (word === this.currentWord) {
           this.performanceTracker.recordError();
         }
@@ -306,7 +194,6 @@ export class WordRainMode {
       this.removeWord(word);
     });
     
-    // Select new current word if needed
     if (!this.currentWord && this.words.length > 0) {
       this.selectNextWord();
     }
@@ -325,27 +212,27 @@ export class WordRainMode {
 
   private disposeWordMesh(mesh: THREE.Group): void {
     mesh.children.forEach(child => {
-      if (child instanceof THREE.Group) {
-        // Each character is now a Group containing a Mesh
-        child.children.forEach(grandChild => {
-          if (grandChild instanceof THREE.Mesh) {
-            grandChild.geometry.dispose();
-            if (Array.isArray(grandChild.material)) {
-              grandChild.material.forEach(mat => mat.dispose());
-            } else {
-              grandChild.material.dispose();
+        if (child instanceof THREE.Group || child instanceof THREE.Mesh) {
+            if (child instanceof THREE.Group) {
+                child.children.forEach(subChild => {
+                    if (subChild instanceof THREE.Mesh) {
+                        subChild.geometry.dispose();
+                        if (Array.isArray(subChild.material)) {
+                            subChild.material.forEach(mat => mat.dispose());
+                        } else {
+                            subChild.material.dispose();
+                        }
+                    }
+                });
+            } else if (child instanceof THREE.Mesh) {
+                child.geometry.dispose();
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(mat => mat.dispose());
+                } else {
+                    child.material.dispose();
+                }
             }
-          }
-        });
-      } else if (child instanceof THREE.Mesh) {
-        // Fallback for direct meshes
-        child.geometry.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach(mat => mat.dispose());
-        } else {
-          child.material.dispose();
         }
-      }
     });
   }
 
@@ -356,7 +243,7 @@ export class WordRainMode {
     });
     
     this.words = [];
-    this.currentWord = null;
+    this.setCurrentWord(null);
     this.textRenderer.dispose();
   }
 }
