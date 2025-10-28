@@ -61,17 +61,46 @@ export class StylishTextRenderer {
         }
 
         const group = new THREE.Group();
-        const charWidth = size * 1.2;
-        const startX = -(text.length * charWidth) / 2;
+        group.userData.size = size; // Store size for updates
+        this.updateTextMesh(group, text);
+        group.position.copy(position);
+        group.castShadow = true;
+        return group;
+    }
 
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
+    public updateTextMesh(textGroup: THREE.Group, newText: string): void {
+        if (!this.font) {
+            throw new Error("Font not loaded");
+        }
+
+        // Dispose and remove old characters
+        while (textGroup.children.length) {
+            const charGroup = textGroup.children[0] as THREE.Group;
+            textGroup.remove(charGroup);
+
+            charGroup.children.forEach(child => {
+                const mesh = child as THREE.Mesh;
+                mesh.geometry?.dispose();
+                if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach(m => m.dispose());
+                } else {
+                    mesh.material?.dispose();
+                }
+            });
+        }
+        
+        const size = textGroup.userData.size || 1;
+        const charWidth = size * 1.2;
+        const totalWidth = newText.length * charWidth;
+
+        for (let i = 0; i < newText.length; i++) {
+            const char = newText[i];
             const charGroup = new THREE.Group();
 
             const backgroundMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 });
             const backgroundGeometry = new THREE.PlaneGeometry(size * 1.2, size * 1.4);
             const backgroundMesh = new THREE.Mesh(backgroundGeometry, backgroundMaterial);
-            backgroundMesh.position.z = -0.3; // Slightly behind the letter
+            backgroundMesh.position.z = -0.3;
             charGroup.add(backgroundMesh);
 
             const geometry = new TextGeometry(char, {
@@ -80,8 +109,8 @@ export class StylishTextRenderer {
                 height: 0.2,
                 curveSegments: 12,
                 bevelEnabled: true,
-                bevelThickness: 0.05, // Reduced from 0.1
-                bevelSize: 0.02,      // Reduced from 0.05
+                bevelThickness: 0.05,
+                bevelSize: 0.02,
                 bevelOffset: 0,
                 bevelSegments: 5
             });
@@ -93,39 +122,51 @@ export class StylishTextRenderer {
             mesh.name = 'letter';
             charGroup.add(mesh);
 
-            charGroup.position.x = startX + (i * charWidth);
-            group.add(charGroup);
+            charGroup.position.x = i * charWidth - totalWidth / 2;
+            textGroup.add(charGroup);
         }
-
-        group.position.copy(position);
-        group.castShadow = true;
-        return group;
     }
     
-    public createIndicatorMesh(): THREE.Mesh {
+    public createIndicator(): THREE.Group {
         if (!this.font) {
             throw new Error("Font not loaded");
         }
 
-        const geometry = new TextGeometry('>', {
-            font: this.font,
-            size: 1,
-            height: 0.2,
-            curveSegments: 12,
-            bevelEnabled: true,
-            bevelThickness: 0.05,
-            bevelSize: 0.02,
-            bevelOffset: 0,
-            bevelSegments: 5
-        });
-        geometry.center();
+        const indicatorGroup = new THREE.Group();
+        indicatorGroup.visible = false;
 
         const material = candyShaderMaterial.clone();
         material.uniforms.baseColor.value = new THREE.Color(0xF59E0B);
-        
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.visible = false;
-        return mesh;
+
+        const createText = (char: string) => {
+            const geometry = new TextGeometry(char, {
+                font: this.font,
+                size: 1,
+                height: 0.2,
+                curveSegments: 12,
+                bevelEnabled: true,
+                bevelThickness: 0.05,
+                bevelSize: 0.02,
+                bevelOffset: 0,
+                bevelSegments: 5
+            });
+            geometry.center();
+            return new THREE.Mesh(geometry, material);
+        };
+
+        const head = createText('>');
+        head.name = 'head';
+        indicatorGroup.add(head);
+
+        const bracketOpen = createText('[');
+        bracketOpen.name = 'bracket_open';
+        indicatorGroup.add(bracketOpen);
+
+        const bracketClose = createText(']');
+        bracketClose.name = 'bracket_close';
+        indicatorGroup.add(bracketClose);
+
+        return indicatorGroup;
     }
 
     public updateTextState(textMesh: THREE.Group, typedLength: number, hasError: boolean): void {

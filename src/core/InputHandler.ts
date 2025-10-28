@@ -116,40 +116,6 @@ export class InputHandler {
     this.onError = callback;
   }
 
-  public update(): void {
-    // Update UI elements
-    this.updateCurrentWordDisplay();
-  }
-
-  private updateCurrentWordDisplay(): void {
-    const currentWordElement = document.getElementById('currentWord');
-    if (!currentWordElement) return;
-
-    const word = this.typingState.currentWord;
-    const typed = this.typingState.typedText;
-    const position = this.typingState.position;
-    const hasError = this.typingState.hasError;
-
-    let html = '';
-    
-    for (let i = 0; i < word.length; i++) {
-      const char = word[i];
-      
-      if (i < typed.length) {
-        // Already typed correctly
-        html += `<span class="typed">${char}</span>`;
-      } else if (i === position && hasError) {
-        // Current character with error
-        html += `<span class="error">${char}</span>`;
-      } else {
-        // Not yet typed
-        html += char;
-      }
-    }
-    
-    currentWordElement.innerHTML = html;
-  }
-
   public dispose(): void {
     document.removeEventListener('keydown', this.handleKeyDown.bind(this));
     document.removeEventListener('keypress', this.handleKeyPress.bind(this));

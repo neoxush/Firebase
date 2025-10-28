@@ -10,19 +10,14 @@ interface FallingWord {
   fallSpeed: number;
   timeLimit: number;
   isActive: boolean;
-  indicator: THREE.Mesh;
+  indicator: THREE.Group;
 }
 
 export class WordRainMode {
   private words: FallingWord[] = [];
   private currentWord: FallingWord | null = null;
   private textRenderer: StylishTextRenderer;
-  private wordList: string[] = [
-    'hello', 'world', 'typing', 'game', 'three', 'webgl', 'javascript',
-    'code', 'fast', 'quick', 'brown', 'fox', 'jumps', 'over', 'lazy',
-    'dog', 'pack', 'quiz', 'just', 'vex', 'bold', 'gym', 'fizz',
-    'when', 'zombies', 'arrive', 'quickly', 'fax', 'judge', 'power'
-  ];
+  private wordList: string[] = [];
   private spawnTimer: number = 0;
   private spawnInterval: number = 3000; // 3 seconds
   private groundY: number = -5;
@@ -37,6 +32,10 @@ export class WordRainMode {
     this.textRenderer = new StylishTextRenderer();
     this.groundY = groundY;
     this.setupInputHandlers();
+  }
+
+  public setWordList(wordList: string[]): void {
+    this.wordList = wordList;
   }
 
   public async initialize(): Promise<void> {
@@ -58,6 +57,10 @@ export class WordRainMode {
   }
 
   private spawnWord(): void {
+    if (this.wordList.length === 0) {
+        console.warn("Word list is empty, cannot spawn a new word.");
+        return;
+    }
     const word = this.getRandomWord();
     const wordId = `word_${this.nextWordId++}`;
     
@@ -70,9 +73,7 @@ export class WordRainMode {
     const position = new THREE.Vector3(x, startY, z);
     const mesh = this.textRenderer.createTextMesh(word, position, 1.0);
     
-    const indicator = this.textRenderer.createIndicatorMesh();
-    const wordWidth = word.length * 1.2; // Estimate from StylishTextRenderer
-    indicator.position.set(-wordWidth / 2 - 1, 0, 0.1);
+    const indicator = this.textRenderer.createIndicator();
     mesh.add(indicator);
 
     this.scene.add(mesh);
@@ -109,13 +110,36 @@ export class WordRainMode {
     if (this.currentWord) {
         this.currentWord.indicator.visible = true;
         this.inputHandler.setCurrentWord(this.currentWord.text);
+        this.updateIndicatorPosition(this.currentWord);
     }
+  }
+  
+  private updateIndicatorPosition(word: FallingWord): void {
+    const head = word.indicator.getObjectByName('head');
+    const bracketOpen = word.indicator.getObjectByName('bracket_open');
+    const bracketClose = word.indicator.getObjectByName('bracket_close');
+
+    const size = word.mesh.userData.size || 1;
+    const charWidth = size * 1.2;
+    const totalWidth = word.text.length * charWidth;
+
+    if (head) head.position.x = -totalWidth / 2 - charWidth;
+    if (bracketOpen) bracketOpen.position.x = -totalWidth / 2 - charWidth * 0.5;
+    if (bracketClose) bracketClose.position.x = totalWidth / 2 + charWidth * 0.5;
   }
 
   private handleWordComplete(word: string, accuracy: number): void {
     if (!this.currentWord || this.currentWord.text !== word) return;
     
     this.performanceTracker.recordWordCompletion(word, accuracy);
+    
+    const stats = this.performanceTracker.getCurrentStats();
+    console.log(`-=-=-=-= STATS =-=-=-=-`);
+    console.log(`Score: ${stats.score}`);
+    console.log(`WPM: ${stats.wpm.toFixed(0)}`);
+    console.log(`Accuracy: ${stats.accuracy.toFixed(1)}%`);
+    console.log(`Completed Words: ${stats.wordsCompleted}`);
+    console.log(`-=-=-=-=-=-=-=-=-=-=-=-`);
     
     this.removeWord(this.currentWord);
     
@@ -180,7 +204,6 @@ export class WordRainMode {
 
   private checkCollisions(): void {
     const wordsToRemove: FallingWord[] = [];
-    
     this.words.forEach(word => {
       if (word.mesh.position.y <= this.groundY) {
         wordsToRemove.push(word);
