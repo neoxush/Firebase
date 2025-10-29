@@ -31,7 +31,7 @@ export class Game {
         }
 
         this.players.forEach((player, index) => {
-            this.statsDisplays.push(new StatsDisplay(index));
+            this.statsDisplays.push(new StatsDisplay(index, player === this.humanPlayer));
         });
 
         this.setupRenderer();
@@ -109,8 +109,17 @@ export class Game {
         this.renderer.setScissorTest(true);
         this.renderer.setClearColor(0x000000, 1);
 
-        this.players.forEach((player, index) => {
-            const left = index * viewWidth;
+        const playerInfo = this.players.map((player, index) => ({ player, originalIndex: index }));
+
+        const humanPlayerIndex = playerInfo.findIndex(info => info.player === this.humanPlayer);
+        if (humanPlayerIndex !== -1) {
+            const humanPlayerInfo = playerInfo.splice(humanPlayerIndex, 1)[0];
+            const middleIndex = Math.floor(nPlayers / 2);
+            playerInfo.splice(middleIndex, 0, humanPlayerInfo);
+        }
+
+        playerInfo.forEach(({ player, originalIndex }, displayIndex) => {
+            const left = displayIndex * viewWidth;
 
             let viewportWidth = viewWidth;
             let viewportHeight = viewportWidth / targetAspectRatio;
@@ -125,10 +134,10 @@ export class Game {
 
             this.renderer.setScissor(left + offsetX, offsetY, viewportWidth, viewportHeight);
             this.renderer.setViewport(left + offsetX, offsetY, viewportWidth, viewportHeight);
-            this.renderer.clear(); // Clear the viewport area
+            this.renderer.clear();
             this.renderer.render(player.scene, player.camera);
 
-            this.statsDisplays[index].setPosition(`${left + offsetX + 5}px`, `${offsetY + 5}px`);
+            this.statsDisplays[originalIndex].setPosition(`${left + offsetX + 5}px`, `${offsetY + 5}px`);
         });
 
         this.renderer.setScissorTest(false);

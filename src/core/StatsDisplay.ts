@@ -7,7 +7,7 @@ export class StatsDisplay {
     private accuracyEl: HTMLElement;
     private wordsEl: HTMLElement;
 
-    constructor(index: number) {
+    constructor(index: number, isHumanPlayer: boolean) {
         this.container = document.createElement('div');
         this.container.className = 'stats-console';
         this.container.id = `stats-console-${index}`;
@@ -15,7 +15,7 @@ export class StatsDisplay {
 
         const title = document.createElement('h2');
         title.textContent = `Player ${index + 1}`;
-        if (index === 0) {
+        if (isHumanPlayer) {
             const youIndicator = document.createElement('span');
             youIndicator.textContent = ' (You)';
             youIndicator.style.color = '#F59E0B';
