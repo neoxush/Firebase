@@ -105,12 +105,14 @@ export class WordRainMode {
   private setCurrentWord(word: FallingWord | null): void {
     if (this.currentWord) {
         this.currentWord.indicator.visible = false;
+        this.textRenderer.setHighlight(this.currentWord.mesh, false);
     }
     this.currentWord = word;
     if (this.currentWord) {
         this.currentWord.indicator.visible = true;
         this.inputHandler.setCurrentWord(this.currentWord.text);
         this.updateIndicatorPosition(this.currentWord);
+        this.textRenderer.setHighlight(this.currentWord.mesh, true);
     }
   }
   

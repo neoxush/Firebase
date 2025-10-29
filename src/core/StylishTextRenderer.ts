@@ -127,6 +127,15 @@ export class StylishTextRenderer {
         }
     }
     
+    public setHighlight(textMesh: THREE.Group, highlighted: boolean): void {
+        textMesh.children.forEach(charGroup => {
+            const backgroundMesh = charGroup.children[0] as THREE.Mesh;
+            if (backgroundMesh && backgroundMesh.material instanceof THREE.MeshBasicMaterial) {
+                backgroundMesh.material.opacity = highlighted ? 0.7 : 0.5;
+            }
+        });
+    }
+
     public createIndicator(): THREE.Group {
         if (!this.font) {
             throw new Error("Font not loaded");
