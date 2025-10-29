@@ -49,6 +49,7 @@ const candyShaderMaterial = new THREE.ShaderMaterial({
 
 export class StylishTextRenderer {
     private font: Font | null = null;
+    private textCache: Map<string, THREE.BufferGeometry> = new Map();
 
     public async initialize(): Promise<void> {
         const fontLoader = new FontLoader();
@@ -61,7 +62,7 @@ export class StylishTextRenderer {
         }
 
         const group = new THREE.Group();
-        group.userData.size = size; // Store size for updates
+        group.userData = { size, text };
         this.updateTextMesh(group, text);
         group.position.copy(position);
         group.castShadow = true;
@@ -73,60 +74,65 @@ export class StylishTextRenderer {
             throw new Error("Font not loaded");
         }
 
-        // Dispose and remove old characters
-        while (textGroup.children.length) {
-            const charGroup = textGroup.children[0] as THREE.Group;
-            textGroup.remove(charGroup);
-
-            charGroup.children.forEach(child => {
-                const mesh = child as THREE.Mesh;
-                mesh.geometry?.dispose();
-                if (Array.isArray(mesh.material)) {
-                    mesh.material.forEach(m => m.dispose());
-                } else {
-                    mesh.material?.dispose();
-                }
-            });
-        }
-        
         const size = textGroup.userData.size || 1;
         const charWidth = size * 1.2;
         const totalWidth = newText.length * charWidth;
 
+        // Reuse or create character meshes
         for (let i = 0; i < newText.length; i++) {
             const char = newText[i];
-            const charGroup = new THREE.Group();
+            let charGroup = textGroup.children[i] as THREE.Group;
 
-            const backgroundMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 });
-            const backgroundGeometry = new THREE.PlaneGeometry(size * 1.2, size * 1.4);
-            const backgroundMesh = new THREE.Mesh(backgroundGeometry, backgroundMaterial);
-            backgroundMesh.position.z = -0.3;
-            charGroup.add(backgroundMesh);
+            if (!charGroup) {
+                charGroup = new THREE.Group();
+                textGroup.add(charGroup);
 
-            const geometry = new TextGeometry(char, {
-                font: this.font,
-                size: size,
-                height: 0.2,
-                curveSegments: 12,
-                bevelEnabled: true,
-                bevelThickness: 0.05,
-                bevelSize: 0.02,
-                bevelOffset: 0,
-                bevelSegments: 5
-            });
-            geometry.center();
+                const backgroundMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 });
+                const backgroundGeometry = new THREE.PlaneGeometry(size * 1.2, size * 1.4);
+                const backgroundMesh = new THREE.Mesh(backgroundGeometry, backgroundMaterial);
+                backgroundMesh.position.z = -0.3;
+                charGroup.add(backgroundMesh);
 
-            const material = candyShaderMaterial.clone();
-            material.uniforms.baseColor.value = new THREE.Color(0xffffff);
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.name = 'letter';
-            charGroup.add(mesh);
-
+                const geometry = this.getCharGeometry(char, size);
+                const material = candyShaderMaterial.clone();
+                material.uniforms.baseColor.value = new THREE.Color(0xffffff);
+                
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.name = 'letter';
+                charGroup.add(mesh);
+            }
             charGroup.position.x = i * charWidth - totalWidth / 2;
-            textGroup.add(charGroup);
         }
+
+        // Remove surplus characters
+        while (textGroup.children.length > newText.length) {
+            textGroup.remove(textGroup.children[textGroup.children.length - 1]);
+        }
+
+        textGroup.userData.text = newText;
     }
-    
+
+    private getCharGeometry(char: string, size: number): THREE.BufferGeometry {
+        const cacheKey = `${char}_${size}`;
+        if (this.textCache.has(cacheKey)) {
+            return this.textCache.get(cacheKey)!;
+        }
+
+        const geometry = new TextGeometry(char, {
+            font: this.font!,
+            size: size,
+            height: 0.2,
+            curveSegments: 4, // Reduced for performance
+            bevelEnabled: true,
+            bevelThickness: 0.02, // Simplified
+            bevelSize: 0.01,
+            bevelSegments: 1 // Reduced
+        });
+        geometry.center();
+        this.textCache.set(cacheKey, geometry);
+        return geometry;
+    }
+
     public setHighlight(textMesh: THREE.Group, highlighted: boolean): void {
         textMesh.children.forEach(charGroup => {
             const backgroundMesh = charGroup.children[0] as THREE.Mesh;
@@ -148,18 +154,7 @@ export class StylishTextRenderer {
         material.uniforms.baseColor.value = new THREE.Color(0xF59E0B);
 
         const createText = (char: string) => {
-            const geometry = new TextGeometry(char, {
-                font: this.font,
-                size: 1,
-                height: 0.2,
-                curveSegments: 12,
-                bevelEnabled: true,
-                bevelThickness: 0.05,
-                bevelSize: 0.02,
-                bevelOffset: 0,
-                bevelSegments: 5
-            });
-            geometry.center();
+            const geometry = this.getCharGeometry(char, 1);
             return new THREE.Mesh(geometry, material);
         };
 
@@ -200,33 +195,16 @@ export class StylishTextRenderer {
     }
     
     public animateTextEntry(textMesh: THREE.Group): void {
-        textMesh.scale.set(0, 0, 0);
-        const animate = () => {
-            const targetScale = 1;
-            const currentScale = textMesh.scale.x;
-            const newScale = THREE.MathUtils.lerp(currentScale, targetScale, 0.1);
-            textMesh.scale.set(newScale, newScale, newScale);
-            if (Math.abs(newScale - targetScale) > 0.01) {
-                requestAnimationFrame(animate);
-            }
-        };
-        animate();
+        textMesh.scale.set(1, 1, 1); // No animation for performance
     }
 
     public animateTextExit(textMesh: THREE.Group, onComplete?: () => void): void {
-        const animate = () => {
-            const targetScale = 0;
-            const currentScale = textMesh.scale.x;
-            const newScale = THREE.MathUtils.lerp(currentScale, targetScale, 0.15);
-            textMesh.scale.set(newScale, newScale, newScale);
-            if (newScale > 0.01) {
-                requestAnimationFrame(animate);
-            } else {
-                onComplete?.();
-            }
-        };
-        animate();
+        textMesh.visible = false; // Hide instantly
+        if(onComplete) onComplete();
     }
 
-    public dispose(): void {}
+    public dispose(): void {
+        this.textCache.forEach(geometry => geometry.dispose());
+        this.textCache.clear();
+    }
 }

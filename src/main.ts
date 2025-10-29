@@ -1,3 +1,4 @@
+import './styles/main.css';
 import { Game } from './Game';
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -1,16 +1,45 @@
-import { GameStats } from "./PerformanceTracker";
+import { GameStats } from './PerformanceTracker';
 
 export class StatsDisplay {
+    private container: HTMLElement;
     private scoreEl: HTMLElement;
     private wpmEl: HTMLElement;
     private accuracyEl: HTMLElement;
     private wordsEl: HTMLElement;
 
-    constructor() {
-        this.scoreEl = document.getElementById('stats-score')!;
-        this.wpmEl = document.getElementById('stats-wpm')!;
-        this.accuracyEl = document.getElementById('stats-accuracy')!;
-        this.wordsEl = document.getElementById('stats-words')!;
+    constructor(index: number) {
+        this.container = document.createElement('div');
+        this.container.className = 'stats-console';
+        this.container.id = `stats-console-${index}`;
+        document.body.appendChild(this.container);
+
+        const title = document.createElement('h2');
+        title.textContent = `Player ${index + 1}`;
+        if (index === 0) {
+            const youIndicator = document.createElement('span');
+            youIndicator.textContent = ' (You)';
+            youIndicator.style.color = '#F59E0B';
+            title.appendChild(youIndicator);
+        }
+        this.container.appendChild(title);
+
+        this.scoreEl = this.createStatElement('Score', 'stats-score');
+        this.wpmEl = this.createStatElement('WPM', 'stats-wpm');
+        this.accuracyEl = this.createStatElement('Accuracy', 'stats-accuracy');
+        this.wordsEl = this.createStatElement('Completed', 'stats-words');
+    }
+
+    private createStatElement(label: string, id: string): HTMLElement {
+        const statContainer = document.createElement('div');
+        const labelEl = document.createElement('span');
+        labelEl.textContent = `${label}: `;
+        const valueEl = document.createElement('span');
+        valueEl.id = id;
+        valueEl.textContent = '0';
+        statContainer.appendChild(labelEl);
+        statContainer.appendChild(valueEl);
+        this.container.appendChild(statContainer);
+        return valueEl;
     }
 
     public update(stats: GameStats): void {
@@ -21,16 +50,15 @@ export class StatsDisplay {
     }
 
     public show(): void {
-        const consoleEl = document.getElementById('stats-console');
-        if (consoleEl) {
-            consoleEl.style.display = 'block';
-        }
+        this.container.style.display = 'block';
     }
 
     public hide(): void {
-        const consoleEl = document.getElementById('stats-console');
-        if (consoleEl) {
-            consoleEl.style.display = 'none';
-        }
+        this.container.style.display = 'none';
+    }
+
+    public setPosition(left: string, top: string): void {
+        this.container.style.left = left;
+        this.container.style.top = top;
     }
 }

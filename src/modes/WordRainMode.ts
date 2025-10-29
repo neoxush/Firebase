@@ -16,7 +16,6 @@ interface FallingWord {
 export class WordRainMode {
   private words: FallingWord[] = [];
   private currentWord: FallingWord | null = null;
-  private textRenderer: StylishTextRenderer;
   private wordList: string[] = [];
   private spawnTimer: number = 0;
   private spawnInterval: number = 3000; // 3 seconds
@@ -27,9 +26,9 @@ export class WordRainMode {
     private scene: THREE.Scene,
     private inputHandler: InputHandler,
     private performanceTracker: PerformanceTracker,
+    private textRenderer: StylishTextRenderer, // Inject StylishTextRenderer
     groundY: number = -5
   ) {
-    this.textRenderer = new StylishTextRenderer();
     this.groundY = groundY;
     this.setupInputHandlers();
   }
@@ -40,8 +39,7 @@ export class WordRainMode {
 
   public async initialize(): Promise<void> {
     console.log('Initializing WordRainMode...');
-    await this.textRenderer.initialize();
-    console.log('TextRenderer initialized, spawning first word...');
+    // TextRenderer is already initialized in Game.ts
     this.spawnWord();
     console.log('WordRainMode initialization complete');
   }

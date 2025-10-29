@@ -11,6 +11,7 @@ export class InputHandler {
   private onKeyPress: ((key: string) => void) | null = null;
   private onWordComplete: ((word: string, accuracy: number) => void) | null = null;
   private onError: (() => void) | null = null;
+  private onWordChanged: ((word: string) => void) | null = null;
 
   constructor() {
     this.typingState = {
@@ -28,7 +29,6 @@ export class InputHandler {
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
-    // Handle special keys
     if (event.key === 'Backspace') {
       event.preventDefault();
       this.handleBackspace();
@@ -36,16 +36,16 @@ export class InputHandler {
   }
 
   private handleKeyPress(event: KeyboardEvent): void {
-    // Prevent default behavior for typing
     event.preventDefault();
-    
     const key = event.key;
-    
-    // Filter out non-printable characters
     if (key.length === 1 && key.match(/[a-zA-Z0-9\s.,!?;:'"()-]/)) {
       this.processCharacter(key);
       this.onKeyPress?.(key);
     }
+  }
+
+  public simulateKeyPress(char: string): void {
+    this.processCharacter(char);
   }
 
   private processCharacter(char: string): void {
@@ -54,17 +54,14 @@ export class InputHandler {
     const expectedChar = this.typingState.currentWord[this.typingState.position];
     
     if (char === expectedChar) {
-      // Correct character
       this.typingState.typedText += char;
       this.typingState.position++;
       this.typingState.hasError = false;
       
-      // Check if word is complete
       if (this.typingState.position >= this.typingState.currentWord.length) {
         this.completeWord();
       }
     } else {
-      // Incorrect character
       this.typingState.hasError = true;
       this.onError?.();
     }
@@ -98,6 +95,7 @@ export class InputHandler {
       hasError: false,
       isComplete: false
     };
+    this.onWordChanged?.(word);
   }
 
   public getCurrentState(): TypingState {
@@ -114,6 +112,10 @@ export class InputHandler {
 
   public onErrorCallback(callback: () => void): void {
     this.onError = callback;
+  }
+
+  public onWordChangedCallback(callback: (word: string) => void): void {
+    this.onWordChanged = callback;
   }
 
   public dispose(): void {
