@@ -43,6 +43,31 @@ This section defines the core features and gameplay loops. All development shoul
 - **Levels:** A player levels up based on accumulated XP.
 - **Achievements:** Unlockable badges for reaching certain milestones (e.g., "Word Wizard" for reaching a 100 WPM, "Perfecto" for a 100% accuracy game).
 
+### 2.4. Future Gameplay Enhancements (Trends & Intentions)
+
+- **Adaptive Difficulty & Personalization:**
+  - Dynamically adjust word speed, length, and complexity based on the player's real-time performance.
+  - Utilize Firebase Remote Config Personalization to suggest game modes that maximize player engagement.
+
+- **Narrative Personas & Thematic Word Lists:**
+  - Introduce distinct AI competitors with unique personalities, backstories, and motivations (e.g., "A stressed teacher," "A cocky scientist").
+  - Create themed word lists that match the competitor's persona and narrative.
+  - Dynamically load word lists based on the selected opponent to enhance storytelling and gameplay variety.
+
+- **Deeper Player Analytics & Feedback:**
+  - Implement a post-game "Performance Review" screen with charts tracking WPM, accuracy, and score over time.
+  - Highlight "problem words" that the player frequently mistypes and offer targeted practice sessions.
+
+- **Enhanced Social & Competitive Features:**
+  - Implement a Friends System and Friend Leaderboards.
+  - Create a real-time "Head-to-Head" (PvP) mode.
+  - Generate shareable result cards for social media.
+
+- **Customization & Cosmetic Rewards:**
+  - Introduce an in-game currency earned through gameplay.
+  - Allow players to unlock visual themes, keyboard skins, and special typing effects.
+  - Enable players to create and use their own custom word lists for practice.
+
 ## 3. Technical Architecture
 
 ### 3.1. Frontend

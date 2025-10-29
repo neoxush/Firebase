@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import { InputHandler } from './core/InputHandler';
 import { PerformanceTracker } from './core/PerformanceTracker';
@@ -6,6 +7,7 @@ import { StatsDisplay } from './core/StatsDisplay';
 import { Player } from './core/Player';
 import { NPCController } from './core/NPCController';
 import { wordList as defaultWordList } from './data/wordlist';
+import { personas, Persona } from './core/Personas'; // Corrected import path
 
 export class Game {
     private renderer: THREE.WebGLRenderer;
@@ -21,17 +23,33 @@ export class Game {
         this.container.appendChild(this.renderer.domElement);
         this.clock = new THREE.Clock();
         this.textRenderer = new StylishTextRenderer();
+        
+        // Create Human Player
         this.humanPlayer = new Player(this.textRenderer);
         this.players.push(this.humanPlayer);
 
+        // Create AI Players with Personas
+        const availablePersonas = [...personas];
+        // Shuffle for random opponents
+        for (let i = availablePersonas.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [availablePersonas[i], availablePersonas[j]] = [availablePersonas[j], availablePersonas[i]];
+        }
+
+        // Create 2 NPC opponents from the shuffled list
         for (let i = 0; i < 2; i++) {
-            const npcPlayer = new Player(this.textRenderer);
-            this.players.push(npcPlayer);
-            this.npcControllers.push(new NPCController(npcPlayer, 5 + Math.random() * 5, 0.9));
+            const persona = availablePersonas.pop();
+            if (persona) {
+                const npcPlayer = new Player(this.textRenderer);
+                (npcPlayer as any).persona = persona; // Attach persona to player
+                this.players.push(npcPlayer);
+                this.npcControllers.push(new NPCController(npcPlayer, persona));
+            }
         }
 
         this.players.forEach((player, index) => {
-            this.statsDisplays.push(new StatsDisplay(index, player === this.humanPlayer));
+            // Pass the entire player object to the StatsDisplay
+            this.statsDisplays.push(new StatsDisplay(player, index));
         });
 
         this.setupRenderer();
@@ -92,12 +110,20 @@ export class Game {
 
         this.players.forEach((player, index) => {
             player.update(deltaTime);
-            if (index > 0) { // human player is at index 0
-                this.npcControllers[index - 1]?.update(deltaTime);
+
+            // Find the correct NPC controller for this player if it's an NPC
+            const npcController = this.npcControllers.find(c => c.player === player);
+            if (npcController) {
+                npcController.update(deltaTime);
             }
+
             player.performanceTracker.update();
             const stats = player.performanceTracker.getCurrentStats();
-            this.statsDisplays[index].update(stats);
+            // Find the correct stats display for this player
+            const statsDisplay = this.statsDisplays.find(d => d.container.id === `stats-console-${index}`);
+            if (statsDisplay) {
+                statsDisplay.update(stats);
+            }
         });
 
         const width = window.innerWidth;
@@ -137,7 +163,10 @@ export class Game {
             this.renderer.clear();
             this.renderer.render(player.scene, player.camera);
 
-            this.statsDisplays[originalIndex].setPosition(`${left + offsetX + 5}px`, `${offsetY + 5}px`);
+            const statsDisplay = this.statsDisplays.find(d => d.container.id === `stats-console-${originalIndex}`);
+            if (statsDisplay) {
+                statsDisplay.setPosition(`${left + offsetX + 5}px`, `${offsetY + 5}px`);
+            }
         });
 
         this.renderer.setScissorTest(false);

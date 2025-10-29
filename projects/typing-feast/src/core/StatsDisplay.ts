@@ -1,4 +1,7 @@
+
 import { GameStats } from './PerformanceTracker';
+import { Player } from './Player';
+import { Persona } from './Personas';
 
 export class StatsDisplay {
     private container: HTMLElement;
@@ -7,20 +10,23 @@ export class StatsDisplay {
     private accuracyEl: HTMLElement;
     private wordsEl: HTMLElement;
 
-    constructor(index: number, isHumanPlayer: boolean) {
+    constructor(player: Player, index: number) {
         this.container = document.createElement('div');
         this.container.className = 'stats-console';
         this.container.id = `stats-console-${index}`;
         document.body.appendChild(this.container);
 
         const title = document.createElement('h2');
-        title.textContent = `Player ${index + 1}`;
-        if (isHumanPlayer) {
-            const youIndicator = document.createElement('span');
-            youIndicator.textContent = ' (You)';
-            youIndicator.style.color = '#F59E0B';
-            title.appendChild(youIndicator);
+        const persona = (player as any).persona as Persona;
+
+        if (persona) {
+            title.textContent = persona.name;
+            title.title = persona.description; // Hover to see the story!
+        } else {
+            title.textContent = 'You';
+            title.style.color = '#F59E0B'; // Highlight the human player
         }
+
         this.container.appendChild(title);
 
         this.scoreEl = this.createStatElement('Score', 'stats-score');

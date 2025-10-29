@@ -1,0 +1,30 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: Can only read/update their own data.
+    match /users/{userId} {
+      allow read, update: if request.auth.uid == userId;
+      allow create: if request.auth.uid != null;
+    }
+
+    // GameSessions: Users can create their own game sessions.
+    // Nobody can update or delete them to preserve game history.
+    match /gameSessions/{sessionId} {
+      allow create: if request.auth.uid == request.resource.data.userId
+                    && request.resource.data.score is number
+                    && request.resource.data.wpm is number
+                    && request.resource.data.accuracy is number;
+      allow read: if request.auth.uid != null;
+      allow update, delete: if false;
+    }
+
+    // Leaderboards: Are read-only for clients. They are only updated
+    // by our secure Cloud Function.
+    match /leaderboards/{period} {
+      allow read: if true;
+      allow write: if false; // Only backend can write
+    }
+  }
+}
